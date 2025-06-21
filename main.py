@@ -8,6 +8,9 @@ from typing import List, Optional
 from pydantic import BaseModel
 import os
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI(title="Corruption Analysis API")
 
@@ -22,7 +25,7 @@ app.add_middleware(
 
 # Получаем путь к Python
 PYTHON_PATH = sys.executable
-PORT = int(os.environ.get("PORT", 8000))
+PORT = int(os.getenv("PORT", "8000"))
 HOST = "0.0.0.0"
 
 class PredictionResult(BaseModel):
@@ -138,5 +141,5 @@ async def analyze_data(file: UploadFile):
 if __name__ == "__main__":
     import uvicorn
     print(f"Using Python from: {PYTHON_PATH}")
-    print(f"Starting server on {HOST}:{PORT}")
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=False) 
+    print(f"Starting server on port: {PORT}")
+    uvicorn.run(app, host="0.0.0.0", port=PORT) 
