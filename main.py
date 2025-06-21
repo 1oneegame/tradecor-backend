@@ -22,6 +22,8 @@ app.add_middleware(
 
 # Получаем путь к Python
 PYTHON_PATH = sys.executable
+PORT = int(os.environ.get("PORT", 8000))
+HOST = "0.0.0.0"
 
 class PredictionResult(BaseModel):
     id: str
@@ -136,4 +138,5 @@ async def analyze_data(file: UploadFile):
 if __name__ == "__main__":
     import uvicorn
     print(f"Using Python from: {PYTHON_PATH}")
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    print(f"Starting server on {HOST}:{PORT}")
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=False) 
