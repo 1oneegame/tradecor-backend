@@ -9,10 +9,21 @@ from pydantic import BaseModel
 import os
 import sys
 from dotenv import load_dotenv
+from fastapi.routing import APIRoute
+from starlette.routing import Route, Mount
+from fastapi.responses import RedirectResponse
 
 load_dotenv()
 
 app = FastAPI(title="Corruption Analysis API")
+
+@app.get("/")
+def read_root():
+    return {"status": "ok", "message": "API работает"}
+
+@app.post("//analyze")
+async def analyze_data_double_slash(file: UploadFile):
+    return await analyze_data(file)
 
 # Настройка CORS
 app.add_middleware(
