@@ -140,6 +140,13 @@ def prepare_features(df):
         features[col] = pd.to_numeric(features[col], errors='coerce')
     features = features.fillna(-999)
     
+    # Обработка бесконечных значений
+    features = features.replace([np.inf, -np.inf], -999)
+    
+    # Ограничение слишком больших значений
+    max_value = 1e9
+    features = features.clip(-max_value, max_value)
+    
     return features, rules['suspicious'], rules
 
 def train_models(X_train, y_train):
