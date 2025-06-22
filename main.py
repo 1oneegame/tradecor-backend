@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from fastapi.routing import APIRoute
 from starlette.routing import Route, Mount
 from fastapi.responses import RedirectResponse
+from parsebot.parse_goszakup import main as parse_goszakup_main
 
 load_dotenv()
 
@@ -41,6 +42,8 @@ HOST = "0.0.0.0"
 
 class PredictionResult(BaseModel):
     id: str
+    lot_id: str
+    customer: str
     subject: str
     subject_link: str
     amount: float
@@ -48,11 +51,34 @@ class PredictionResult(BaseModel):
     suspicion_percentage: float
     suspicion_level: str
 
+class PaginationRequest(BaseModel):
+    page: int = 1
+    per_page: int = 10
+
 class AnalysisResponse(BaseModel):
     success: bool
     predictions: Optional[List[PredictionResult]] = None
     error: Optional[str] = None
-    execution_time: float = 0.0  # Добавляем значение по умолчанию и явно указываем тип float
+    execution_time: float = 0.0
+
+class PaginationResponse(BaseModel):
+    success: bool
+    data: List[dict] = []
+    total: int = 0
+    page: int = 1
+    per_page: int = 10
+    total_pages: int = 1
+    new_lots_count: int = 0
+    error: Optional[str] = None
+
+class GoszakupRequest(BaseModel):
+    page: int = 1
+    count_record: int = 2000
+
+class GoszakupResponse(BaseModel):
+    success: bool
+    data: List[dict] = []
+    error: Optional[str] = None
 
 def parse_amount(amount) -> float:
     if amount is None:
@@ -118,6 +144,8 @@ async def analyze_data(file: UploadFile):
             
             results.append(PredictionResult(
                 id=str(row.get('id', i)),
+                lot_id=str(row.get('lot_id', '')),
+                customer=str(row.get('customer', '')),
                 subject=str(row.get('subject', '')),
                 subject_link=str(row.get('subject_link', '')),
                 amount=amount,
@@ -149,6 +177,65 @@ async def analyze_data(file: UploadFile):
                 "error": str(e),
                 "execution_time": float(round(execution_time, 2))
             }
+        )
+
+@app.post("/parse_goszakup", response_model=PaginationResponse)
+async def parse_goszakup(request: PaginationRequest):
+    try:
+        from analyze_the_lots.parse_goszakup import main as parse_main
+        
+        # Запускаем парсинг новых лотов
+        new_lots = parse_main(start_page=request.page, max_pages=1)
+        
+        # Читаем обновленный файл
+        with open(os.path.join(os.path.dirname(__file__), 'analyze_the_lots', 'suspicious_purchases.csv'), 'r', encoding='utf-8') as f:
+            df = pd.read_csv(f)
+        
+        total_records = len(df)
+        total_pages = (total_records + request.per_page - 1) // request.per_page
+        
+        start_idx = (request.page - 1) * request.per_page
+        end_idx = min(start_idx + request.per_page, total_records)
+        
+        page_data = df.iloc[start_idx:end_idx].to_dict('records')
+        
+        return PaginationResponse(
+            success=True,
+            data=page_data,
+            total=total_records,
+            page=request.page,
+            per_page=request.per_page,
+            total_pages=total_pages,
+            new_lots_count=len(new_lots)
+        )
+    except Exception as e:
+        return PaginationResponse(
+            success=False,
+            error=str(e)
+        )
+
+@app.post("/parse", response_model=GoszakupResponse)
+async def parse_goszakup_endpoint(request: GoszakupRequest):
+    try:
+        print(f"\n[API] Получен запрос на парсинг. Страница: {request.page}, Количество записей: {request.count_record}")
+        start_time = time.time()
+        
+        data = parse_goszakup_main(page=request.page, count_record=request.count_record)
+        
+        end_time = time.time()
+        execution_time = round(end_time - start_time, 2)
+        print(f"[API] Парсинг завершен. Получено записей: {len(data)}")
+        print(f"[API] Время выполнения: {execution_time} секунд")
+        
+        return GoszakupResponse(
+            success=True,
+            data=data
+        )
+    except Exception as e:
+        print(f"[API ERROR] Ошибка при парсинге: {str(e)}")
+        return GoszakupResponse(
+            success=False,
+            error=str(e)
         )
 
 if __name__ == "__main__":
