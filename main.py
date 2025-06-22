@@ -42,6 +42,7 @@ HOST = "0.0.0.0"
 class PredictionResult(BaseModel):
     id: str
     subject: str
+    subject_link: str
     amount: float
     quantity: float
     suspicion_percentage: float
@@ -118,6 +119,7 @@ async def analyze_data(file: UploadFile):
             results.append(PredictionResult(
                 id=str(row.get('id', i)),
                 subject=str(row.get('subject', '')),
+                subject_link=str(row.get('subject_link', '')),
                 amount=amount,
                 quantity=quantity,
                 suspicion_percentage=float(predictions[i]),
